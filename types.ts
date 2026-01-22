@@ -1,10 +1,9 @@
-
 export interface LineItem {
   description: string;
   quantity: number | string;
   price: number | string;
   amount: number;
-  vatRate: number; // Added per-item VAT
+  vatRate: number; 
 }
 
 export interface Product {
@@ -37,13 +36,13 @@ export interface Invoice {
   status: 'draft' | 'sent' | 'paid' | 'accepted';
   items: LineItem[];
   total: number;
-  discountAmount: number; // New: Discount excluding VAT
-  discountVatRate: number; // New: VAT rate applicable to the discount
+  discountAmount: number;
+  discountVatRate: number;
 }
 
 export interface UserSettings {
   companyName: string;
-  userName: string; // New: Custom display name
+  userName: string;
   kvkNumber: string;
   vatNumber: string;
   address: string;
@@ -54,17 +53,22 @@ export interface UserSettings {
   watermarkOpacity: number; 
   layoutStyle: 'modern' | 'classic'; 
   primaryColor: string;
-  footerText?: string; // New: Custom footer text
-  products: Product[]; // New: Saved products list
-  customers?: Customer[]; // Optional: Manually saved customers
-  dashboardNotes: string; // New: Saved notes
-  darkMode?: boolean; // New: Dark mode preference
+  footerText?: string;
+  products: Product[];
+  customers?: Customer[];
+  dashboardNotes: string;
+  darkMode?: boolean;
   
   // License & Plan
   licenseKey?: string;
   activePlan?: 'Basic' | 'Pro' | 'Enterprise';
   planStatus?: 'active' | 'expired' | 'trial';
   planExpires?: string;
+
+  // TOEVOEGING: Watermerk customisatie
+  watermarkSize: number;
+  watermarkX: number;
+  watermarkY: number;
 }
 
 export interface User {

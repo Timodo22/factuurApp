@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Invoice, UserSettings, User, LineItem, DocumentType, Product } from './types';
 import Login from './components/Login';
@@ -33,7 +32,7 @@ const XIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" v
 const MoonIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>;
 const SunIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
 
-// Default settings - Now empty for new users
+// Default settings - Expanded with watermark customization fields
 const defaultSettings: UserSettings = {
   companyName: "",
   userName: "",
@@ -50,9 +49,13 @@ const defaultSettings: UserSettings = {
   products: [],
   dashboardNotes: "",
   footerText: "",
-  activePlan: 'Basic', // Default is now Basic (Trial/Paid) instead of Free
+  activePlan: 'Basic', 
   planStatus: 'trial',
-  darkMode: false
+  darkMode: false,
+  // New Watermark Fields
+  watermarkSize: 1, 
+  watermarkX: 0,
+  watermarkY: 0
 };
 
 export function App() {
@@ -68,20 +71,20 @@ export function App() {
   const [isInvoiceMenuOpen, setIsInvoiceMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Print State (Used to render a specific invoice for printing)
+  // Print State
   const [printInvoiceData, setPrintInvoiceData] = useState<Invoice | null>(null);
 
   // Validation State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
 
-  // Login Error & Password Change State
+  // Login & Password State
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
-  const [tempUser, setTempUser] = useState<any>(null); // Temp hold user until pwd change
+  const [tempUser, setTempUser] = useState<any>(null); 
   const [newPassword, setNewPassword] = useState('');
 
-  // System Broadcast Message
+  // System Message
   const [systemBroadcast, setSystemBroadcast] = useState<string | null>(null);
   const [dismissedMessage, setDismissedMessage] = useState<string | null>(localStorage.getItem('factuurmeester_read_message'));
 
@@ -106,9 +109,8 @@ export function App() {
   });
   const [aiInput, setAiInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAiOpen, setIsAiOpen] = useState(false); // Default closed
+  const [isAiOpen, setIsAiOpen] = useState(false); 
 
-  // Check for system message and features on mount
   useEffect(() => {
       const msg = localStorage.getItem('factuurmeester_system_message');
       setSystemBroadcast(msg);
@@ -116,7 +118,6 @@ export function App() {
       const readMsg = localStorage.getItem('factuurmeester_read_message');
       setDismissedMessage(readMsg);
 
-      // Check Feature Flags from Admin
       const features = JSON.parse(localStorage.getItem('factuurmeester_features') || '[]');
       const darkModeFeature = features.find((f: any) => f.id === 'f3');
       if (darkModeFeature && darkModeFeature.enabled) {
@@ -124,7 +125,6 @@ export function App() {
       }
   }, [isAdmin, user, activeTab]); 
 
-  // Apply Dark Mode Class
   useEffect(() => {
     if (settings.darkMode) {
         document.documentElement.classList.add('dark');
@@ -133,38 +133,29 @@ export function App() {
     }
   }, [settings.darkMode]);
 
-  // Derived Data for Folders
   const uniqueYears = Array.from(new Set(invoices.map(i => i.date.split('-')[0]))).sort().reverse();
   
-  // Stats Calculation
   const openInvoices = invoices.filter(i => i.status === 'sent' && i.type === 'invoice');
   const openAmount = openInvoices.reduce((acc, i) => acc + i.total, 0);
   const paidInvoices = invoices.filter(i => i.status === 'paid' && i.type === 'invoice');
   const paidAmount = paidInvoices.reduce((acc, i) => acc + i.total, 0);
   const draftAmount = invoices.filter(i => i.status === 'draft' && i.type === 'invoice').reduce((acc, i) => acc + i.total, 0);
 
-  // Dashboard Specific Data
   const today = new Date().toISOString().split('T')[0];
   const overdueQuotes = invoices.filter(i => i.type === 'quote' && i.status === 'sent' && i.dueDate < today);
-  // Sort open invoices by date (oldest first)
   const openInvoicesSorted = [...openInvoices].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Trigger print when printInvoiceData is set
   useEffect(() => {
     if (printInvoiceData) {
-        // Small delay to ensure React has rendered the print view
         const timer = setTimeout(() => {
             window.print();
-            // Clear after print dialog closes (or shortly after it opens)
             setPrintInvoiceData(null);
         }, 500);
         return () => clearTimeout(timer);
     }
   }, [printInvoiceData]);
 
-  // Filter Invoices based on folder selection AND Search
   const filteredInvoices = invoices.filter(inv => {
-    // 1. Search Query Filter (Global)
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -174,28 +165,21 @@ export function App() {
             inv.date.includes(query)
         );
     }
-
-    // 2. View Mode Filters (Only if no search)
     if (viewMode === 'list') return true;
-
-    // Inside a Year Folder
     if (selectedFolderYear) {
         return inv.date.startsWith(selectedFolderYear);
     }
-    return true; // Root folder view handles its own rendering (showing years, not invoices)
+    return true; 
   });
 
   const completeLogin = (userObj: any) => {
-      // 2. Set Basic User Info
     const displayName = userObj.name;
     setUser({ email: userObj.email, name: displayName });
     setIsAdmin(false);
 
-    // 3. Configure Settings based on Account Status
     let newSettings = { ...settings, userName: displayName };
 
     if (userObj.licenseKey) {
-        // If they have a linked license, apply those specific details
         const storedLicenses = JSON.parse(localStorage.getItem('factuurmeester_licenses') || '[]');
         const linkedLicense = storedLicenses.find((l: any) => l.key === userObj.licenseKey);
         
@@ -209,7 +193,6 @@ export function App() {
             };
         }
     } else {
-        // Fallback if they have a plan set in user table but no specific key linked
             newSettings = {
             ...newSettings,
             activePlan: userObj.plan,
@@ -221,23 +204,18 @@ export function App() {
   };
 
   const handleLogin = (email: string, password?: string) => {
-    // 1. Check if user exists in the "Admin Database" (localStorage)
     const adminUsers = JSON.parse(localStorage.getItem('factuurmeester_admin_users') || '[]');
     const foundUser = adminUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
 
     if (foundUser) {
-        // Enforce password if user exists in admin DB
         if (foundUser.password && foundUser.password !== password) {
             setLoginError("Onjuist wachtwoord. Probeer het opnieuw.");
             return;
         }
-
         if (foundUser.status === 'Blocked') {
             setLoginError("Dit account is geblokkeerd. Neem contact op met de beheerder.");
             return;
         }
-
-        // CHECK IF PASSWORD CHANGE IS REQUIRED
         if (foundUser.requiresPasswordChange) {
             setTempUser(foundUser);
             setShowPasswordChangeModal(true);
@@ -245,11 +223,7 @@ export function App() {
             return;
         }
     }
-
-    // Clear error if success
     setLoginError(null);
-
-    // If user exists, complete login. If standard demo user, creates a basic session.
     completeLogin(foundUser || { name: email.split('@')[0], email: email, plan: 'Basic' });
   };
 
@@ -258,8 +232,6 @@ export function App() {
           alert("Kies een wachtwoord van minimaal 5 tekens.");
           return;
       }
-
-      // Update user in localStorage
       const adminUsers = JSON.parse(localStorage.getItem('factuurmeester_admin_users') || '[]');
       const updatedUsers = adminUsers.map((u: any) => {
           if (u.id === tempUser.id) {
@@ -267,10 +239,7 @@ export function App() {
           }
           return u;
       });
-
       localStorage.setItem('factuurmeester_admin_users', JSON.stringify(updatedUsers));
-      
-      // Proceed to login
       completeLogin(tempUser);
       setShowPasswordChangeModal(false);
       setTempUser(null);
@@ -278,7 +247,6 @@ export function App() {
   };
 
   const handleAdminLogin = (u: string, p: string) => {
-    // Hardcoded admin credentials for demo purposes
     if (u === 'admin' && p === 'admin123') {
         setLoginError(null);
         setUser({ email: 'admin@factuurmeester.nl', name: 'Administrator' });
@@ -291,9 +259,6 @@ export function App() {
   const handleLogout = () => {
     setUser(null);
     setIsAdmin(false);
-    // Also reset dark mode on logout to default or keep user preference? 
-    // Usually standard reset or persistent. For this demo, let's keep it but remove the class if new user default is false.
-    // Actually, react state reset handles it.
   };
 
   const handleDismissBroadcast = () => {
@@ -312,15 +277,9 @@ export function App() {
     setIsGenerating(true);
     try {
       const items = await parseWorkDescriptionToItems(aiInput);
-      // Map to include vatRate default 21 if not present
-      const mappedItems = items.map(item => ({
-          ...item,
-          vatRate: 21
-      }));
-      
+      const mappedItems = items.map(item => ({ ...item, vatRate: 21 }));
       setNewInvoice(prev => {
           const updatedItems = [...prev.items, ...mappedItems];
-          // Recalculate happens in save, but let's trigger update
           return { ...prev, items: updatedItems };
       });
       setAiInput('');
@@ -334,18 +293,9 @@ export function App() {
   const calculateInvoiceTotal = (inv: Invoice): number => {
       const subtotal = inv.items.reduce((acc, item) => acc + item.amount, 0);
       const discount = inv.discountAmount || 0;
-      
-      // Calculate VAT per item
       let totalVat = 0;
-      inv.items.forEach(item => {
-          totalVat += item.amount * (item.vatRate / 100);
-      });
-
-      // Subtract discount VAT
-      if (discount > 0) {
-          totalVat -= discount * ((inv.discountVatRate || 21) / 100);
-      }
-
+      inv.items.forEach(item => { totalVat += item.amount * (item.vatRate / 100); });
+      if (discount > 0) { totalVat -= discount * ((inv.discountVatRate || 21) / 100); }
       return (subtotal - discount) + totalVat;
   };
 
@@ -355,7 +305,6 @@ export function App() {
     if (!inv.clientAddress) errors.push("Klantadres is niet ingevuld.");
     if (inv.items.length === 0) errors.push("Er zijn geen factuurregels toegevoegd.");
     if (inv.items.some(i => Number(i.quantity) === 0 || Number(i.price) === 0)) errors.push("Er zijn factuurregels met aantal of prijs 0.");
-    
     return errors;
   };
 
@@ -368,28 +317,21 @@ export function App() {
             return;
         }
     }
-    
     setShowValidationModal(false);
     setValidationErrors([]);
-
     const total = calculateInvoiceTotal(newInvoice);
-    
     const finalInvoice = {
       ...newInvoice,
       id: newInvoice.id || Date.now().toString(),
       total: total
     };
-
-    // Check if updating existing
     const exists = invoices.find(i => i.id === finalInvoice.id);
     if (exists) {
         setInvoices(invoices.map(i => i.id === finalInvoice.id ? finalInvoice : i));
     } else {
         setInvoices([finalInvoice, ...invoices]);
     }
-    
     setActiveTab('invoices');
-    // Determine view mode
     setViewMode('folders'); 
     setSelectedFolderYear(finalInvoice.date.split('-')[0]);
     resetNewInvoice();
@@ -438,20 +380,15 @@ export function App() {
       }
   };
 
-  // Email Handler
   const handleEmail = (invoice: Invoice) => {
     const subject = `${invoice.type === 'quote' ? 'Offerte' : 'Factuur'} ${invoice.number} - ${settings.companyName}`;
     const body = `Beste ${invoice.clientName},\n\nHierbij ontvangt u de ${invoice.type === 'quote' ? 'offerte' : 'factuur'} ${invoice.number} voor ${invoice.project || 'de werkzaamheden'}.\n\nMet vriendelijke groet,\n\n${settings.companyName}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  // Print handlers
-  const handlePrintFromList = (invoice: Invoice) => {
-      setPrintInvoiceData(invoice);
-  };
+  const handlePrintFromList = (invoice: Invoice) => { setPrintInvoiceData(invoice); };
 
   const handlePrintFromEditor = () => {
-      // Recalculate totals before printing to ensure accuracy
       const total = calculateInvoiceTotal(newInvoice);
       setPrintInvoiceData({ ...newInvoice, total });
   };
@@ -459,53 +396,29 @@ export function App() {
   if (!user) {
     return (
         <>
-            {/* Password Change Modal */}
             {showPasswordChangeModal && (
                 <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
                      <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 border-t-4 border-indigo-600 animate-fade-in border border-gray-300">
                         <h2 className="text-xl font-bold text-gray-900 mb-2">Wachtwoord Wijzigen</h2>
-                        <p className="text-gray-500 text-sm mb-6">
-                            Omdat dit uw eerste keer inloggen is (of omdat de beheerder dit heeft ingesteld), moet u uw wachtwoord wijzigen.
-                        </p>
-                        
+                        <p className="text-gray-500 text-sm mb-6">U moet uw wachtwoord wijzigen voordat u doorgaat.</p>
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Nieuw Wachtwoord</label>
-                                <input 
-                                    type="password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                                    placeholder="Minimaal 5 tekens"
-                                />
+                                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white" placeholder="Minimaal 5 tekens" />
                             </div>
-                            <button 
-                                onClick={handleNewPasswordSubmit}
-                                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition"
-                            >
-                                Wachtwoord Opslaan & Inloggen
-                            </button>
+                            <button onClick={handleNewPasswordSubmit} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition">Wachtwoord Opslaan & Inloggen</button>
                         </div>
                      </div>
                 </div>
             )}
-
-            {/* Login Error Modal */}
             {loginError && !showPasswordChangeModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 animate-fade-in border-l-4 border-red-500 border-y border-r border-gray-300">
                         <div className="flex flex-col items-center text-center">
-                            <div className="bg-red-50 p-3 rounded-full mb-4">
-                                <ExclamationCircleIcon />
-                            </div>
+                            <div className="bg-red-50 p-3 rounded-full mb-4"><ExclamationCircleIcon /></div>
                             <h3 className="text-xl font-bold text-gray-900 mb-2">Inloggen Mislukt</h3>
                             <p className="text-gray-500 mb-6">{loginError}</p>
-                            <button 
-                                onClick={() => setLoginError(null)} 
-                                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition shadow-sm"
-                            >
-                                Probeer Opnieuw
-                            </button>
+                            <button onClick={() => setLoginError(null)} className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition shadow-sm">Probeer Opnieuw</button>
                         </div>
                     </div>
                 </div>
@@ -515,734 +428,154 @@ export function App() {
     );
   }
 
-  // Admin Portal Render
-  if (isAdmin) {
-    return <AdminPortal onLogout={handleLogout} user={user} />;
-  }
-  
+  if (isAdmin) { return <AdminPortal onLogout={handleLogout} user={user} />; }
   const showBanner = systemBroadcast && systemBroadcast !== dismissedMessage;
 
   return (
     <div className="h-screen flex bg-gray-100 dark:bg-gray-900 font-sans flex-col overflow-hidden transition-colors duration-300">
-      {/* System Broadcast Banner */}
       {showBanner && (
           <div className="bg-blue-600 text-white px-6 py-3 shadow-md z-[60] flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center">
-                  <BellIcon />
-                  <span className="ml-3 font-medium">{systemBroadcast}</span>
-              </div>
-              <button onClick={handleDismissBroadcast} className="text-blue-200 hover:text-white flex items-center gap-1 text-sm font-bold bg-blue-700 px-3 py-1 rounded-full hover:bg-blue-800 transition">
-                  <span className="hidden sm:inline">Gelezen</span>
-                  <XIcon />
-              </button>
+              <div className="flex items-center"><BellIcon /><span className="ml-3 font-medium">{systemBroadcast}</span></div>
+              <button onClick={handleDismissBroadcast} className="text-blue-200 hover:text-white flex items-center gap-1 text-sm font-bold bg-blue-700 px-3 py-1 rounded-full hover:bg-blue-800 transition"><span className="hidden sm:inline">Gelezen</span><XIcon /></button>
           </div>
       )}
 
       <div className="flex flex-1 overflow-hidden relative">
-      {/* Validation Modal */}
       {showValidationModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 animate-fade-in border border-gray-300 dark:border-gray-700">
                 <div className="flex flex-col items-center text-center">
-                    <div className="bg-red-50 p-3 rounded-full mb-4">
-                        <ExclamationCircleIcon />
-                    </div>
+                    <div className="bg-red-50 p-3 rounded-full mb-4"><ExclamationCircleIcon /></div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Let op!</h3>
-                    <p className="text-gray-500 dark:text-gray-300 mb-6">De volgende gegevens ontbreken of zijn onvolledig:</p>
+                    <p className="text-gray-500 dark:text-gray-300 mb-6">Gegevens ontbreken of zijn onvolledig:</p>
                     <ul className="text-left w-full bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-4 mb-6 space-y-2">
-                        {validationErrors.map((error, idx) => (
-                            <li key={idx} className="flex items-start text-sm text-red-700 dark:text-red-300">
-                                <span className="mr-2">•</span> {error}
-                            </li>
-                        ))}
+                        {validationErrors.map((error, idx) => (<li key={idx} className="flex items-start text-sm text-red-700 dark:text-red-300"><span className="mr-2">•</span> {error}</li>))}
                     </ul>
                     <div className="flex space-x-3 w-full">
-                        <button 
-                            onClick={() => setShowValidationModal(false)} 
-                            className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium transition"
-                        >
-                            Terug naar bewerken
-                        </button>
-                        <button 
-                            onClick={() => saveInvoice(true)} 
-                            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition shadow-sm"
-                        >
-                            Toch opslaan
-                        </button>
+                        <button onClick={() => setShowValidationModal(false)} className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 font-medium transition">Terug naar bewerken</button>
+                        <button onClick={() => saveInvoice(true)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition shadow-sm">Toch opslaan</button>
                     </div>
                 </div>
             </div>
         </div>
       )}
 
-      {/* Hidden Print Container - Works for both List and Editor views */}
       {printInvoiceData && (
           <div className="hidden print:block fixed inset-0 z-[100] bg-white">
               <InvoicePreview invoice={printInvoiceData} settings={settings} />
           </div>
       )}
 
-      {/* Sidebar */}
       <div className={`w-64 bg-indigo-900 dark:bg-gray-950 text-white flex flex-col z-50 shadow-xl overflow-y-auto flex-shrink-0 h-full ${printInvoiceData ? 'print:hidden' : 'no-print'}`}>
         <div className="p-6 border-b border-indigo-800 dark:border-gray-800">
           <h1 className="text-2xl font-bold tracking-tight italic">FactuurMeester</h1>
           <p className="text-indigo-300 dark:text-gray-500 text-xs mt-2 uppercase tracking-wider">Licentiehouder</p>
           <p className="font-medium">{settings.userName || user.name}</p>
-          {settings.activePlan && settings.activePlan !== 'Basic' && (
-             <span className="inline-block mt-1 px-2 py-0.5 bg-indigo-700 dark:bg-gray-800 rounded text-[10px] font-bold uppercase tracking-wide border border-indigo-500 dark:border-gray-700">{settings.activePlan} Plan</span>
-          )}
+          {settings.activePlan && settings.activePlan !== 'Basic' && ( <span className="inline-block mt-1 px-2 py-0.5 bg-indigo-700 dark:bg-gray-800 rounded text-[10px] font-bold uppercase tracking-wide border border-indigo-500 dark:border-gray-700">{settings.activePlan} Plan</span> )}
         </div>
         
-        {/* Quick Action Button */}
         <div className="px-4 mt-6">
-             <button 
-                onClick={() => { setActiveTab('create'); resetNewInvoice('invoice'); }}
-                className="w-full bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center"
-             >
-                <PlusIcon />
-                <span className="ml-2 text-sm">Nieuwe Offerte/Factuur</span>
-             </button>
+             <button onClick={() => { setActiveTab('create'); resetNewInvoice('invoice'); }} className="w-full bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors flex items-center justify-center"><PlusIcon /><span className="ml-2 text-sm">Nieuwe Offerte/Factuur</span></button>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
-          <button 
-            onClick={() => setActiveTab('home')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}
-          >
-            <HomeIcon />
-            <span className="ml-3 font-medium">Home</span>
-          </button>
-          
-          {/* Collapsible Invoices Menu */}
+          <button onClick={() => setActiveTab('home')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}><HomeIcon /><span className="ml-3 font-medium">Home</span></button>
           <div>
-            <button 
-                onClick={() => setIsInvoiceMenuOpen(!isInvoiceMenuOpen)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${['invoices', 'create'].includes(activeTab) ? 'bg-indigo-800 dark:bg-gray-800' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}
-            >
-                <div className="flex items-center">
-                    <FolderIcon />
-                    <span className="ml-3 font-medium">Facturen</span>
-                </div>
-                {isInvoiceMenuOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-            </button>
-            
-            {isInvoiceMenuOpen && (
-                <div className="ml-4 mt-1 space-y-1 border-l border-indigo-700 dark:border-gray-700 pl-2">
-                    <button 
-                        onClick={() => { setActiveTab('invoices'); setViewMode('folders'); setSelectedFolderYear(null); }}
-                        className={`w-full flex items-center px-4 py-2 rounded-lg transition-colors text-sm ${activeTab === 'invoices' ? 'bg-indigo-700 dark:bg-gray-700 text-white' : 'text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800'}`}
-                    >
-                        <span className="font-medium">Overzicht</span>
-                    </button>
-                </div>
-            )}
+            <button onClick={() => setIsInvoiceMenuOpen(!isInvoiceMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${['invoices', 'create'].includes(activeTab) ? 'bg-indigo-800 dark:bg-gray-800' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}><div className="flex items-center"><FolderIcon /><span className="ml-3 font-medium">Facturen</span></div>{isInvoiceMenuOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}</button>
+            {isInvoiceMenuOpen && ( <div className="ml-4 mt-1 space-y-1 border-l border-indigo-700 dark:border-gray-700 pl-2"><button onClick={() => { setActiveTab('invoices'); setViewMode('folders'); setSelectedFolderYear(null); }} className={`w-full flex items-center px-4 py-2 rounded-lg transition-colors text-sm ${activeTab === 'invoices' ? 'bg-indigo-700 dark:bg-gray-700 text-white' : 'text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800'}`}><span className="font-medium">Overzicht</span></button></div> )}
           </div>
-
-          <button 
-            onClick={() => setActiveTab('customers')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'customers' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}
-          >
-            <UserGroupIcon />
-            <span className="ml-3 font-medium">Klanten</span>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('products')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'products' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}
-          >
-            <CubeIcon />
-            <span className="ml-3 font-medium">Producten</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}
-          >
-            <CogIcon />
-            <span className="ml-3 font-medium">Instellingen</span>
-          </button>
+          <button onClick={() => setActiveTab('customers')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'customers' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}><UserGroupIcon /><span className="ml-3 font-medium">Klanten</span></button>
+          <button onClick={() => setActiveTab('products')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'products' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}><CubeIcon /><span className="ml-3 font-medium">Producten</span></button>
+          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-indigo-700 dark:bg-gray-800 shadow-lg' : 'hover:bg-indigo-800 dark:hover:bg-gray-800 text-indigo-100 dark:text-gray-300'}`}><CogIcon /><span className="ml-3 font-medium">Instellingen</span></button>
         </nav>
 
         <div className="p-4 border-t border-indigo-800 dark:border-gray-800 mt-auto bg-indigo-900 dark:bg-gray-950 z-10 space-y-2">
-            {canToggleDarkMode && (
-                <button
-                    onClick={toggleDarkMode}
-                    className="w-full flex items-center px-4 py-2 text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2"
-                >
-                    {settings.darkMode ? <SunIcon /> : <MoonIcon />}
-                    <span className="ml-3 font-medium">{settings.darkMode ? 'Lichte Modus' : 'Donkere Modus'}</span>
-                </button>
-            )}
-
-            <button 
-                onClick={handleLogout}
-                className="w-full flex items-center px-4 py-2 text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
-                <LogoutIcon />
-                <span className="ml-3 font-medium">Uitloggen</span>
-            </button>
+            {canToggleDarkMode && ( <button onClick={toggleDarkMode} className="w-full flex items-center px-4 py-2 text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800 rounded-lg transition-colors mb-2">{settings.darkMode ? <SunIcon /> : <MoonIcon />}<span className="ml-3 font-medium">{settings.darkMode ? 'Lichte Modus' : 'Donkere Modus'}</span></button> )}
+            <button onClick={handleLogout} className="w-full flex items-center px-4 py-2 text-indigo-200 dark:text-gray-400 hover:text-white hover:bg-indigo-800 dark:hover:bg-gray-800 rounded-lg transition-colors"><LogoutIcon /><span className="ml-3 font-medium">Uitloggen</span></button>
         </div>
       </div>
 
-      {/* Main Content */}
       <div className={`flex-1 p-8 overflow-y-auto h-full ${printInvoiceData ? 'print:hidden' : ''} print:ml-0 print:p-0 dark:text-gray-100`}>
-        
-        {/* HOME TAB */}
         {activeTab === 'home' && (
              <div className="space-y-8">
-                {/* Welcome Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-800 dark:to-blue-900 rounded-xl py-3 px-5 text-white shadow-lg flex justify-between items-center border border-indigo-700 dark:border-indigo-900">
-                    <div>
-                        <h2 className="text-lg font-bold">Welkom terug, {settings.userName || user.name}</h2>
-                        <p className="text-indigo-100 opacity-90 text-xs">Klaar voor een productieve dag?</p>
-                    </div>
+                    <div><h2 className="text-lg font-bold">Welkom terug, {settings.userName || user.name}</h2><p className="text-indigo-100 opacity-90 text-xs">Klaar voor een productieve dag?</p></div>
                 </div>
-                
-                {/* Financial Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-red-500 dark:border-gray-700 dark:border-l-red-500">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nog te ontvangen</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {openAmount.toFixed(2)}</p>
-                            </div>
-                            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-full text-red-500 border border-red-100 dark:border-red-900">
-                                <CashIcon />
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-4">{openInvoices.length} facturen openstaand</p>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-green-500 dark:border-gray-700 dark:border-l-green-500">
-                         <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Omzet (Betaald)</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {paidAmount.toFixed(2)}</p>
-                            </div>
-                            <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-full text-green-500 border border-green-100 dark:border-green-900">
-                                <CashIcon />
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-4">{paidInvoices.length} facturen afgerond</p>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-gray-400 dark:border-gray-700 dark:border-l-gray-600">
-                         <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Waarde Concepten</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {draftAmount.toFixed(2)}</p>
-                            </div>
-                            <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-full text-gray-400 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                                <DocumentIcon />
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-4">Werk in voorbereiding</p>
-                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-red-500 dark:border-gray-700 dark:border-l-red-500"><div className="flex justify-between items-start"><div><p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nog te ontvangen</p><p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {openAmount.toFixed(2)}</p></div><div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-full text-red-500 border border-red-100 dark:border-red-900"><CashIcon /></div></div><p className="text-xs text-gray-400 mt-4">{openInvoices.length} facturen openstaand</p></div>
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-green-500 dark:border-gray-700 dark:border-l-green-500"><div className="flex justify-between items-start"><div><p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Omzet (Betaald)</p><p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {paidAmount.toFixed(2)}</p></div><div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-full text-green-500 border border-green-100 dark:border-green-900"><CashIcon /></div></div><p className="text-xs text-gray-400 mt-4">{paidInvoices.length} facturen afgerond</p></div>
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow border border-gray-300 border-l-4 border-l-gray-400 dark:border-gray-700 dark:border-l-gray-600"><div className="flex justify-between items-start"><div><p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Waarde Concepten</p><p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">€ {draftAmount.toFixed(2)}</p></div><div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-full text-gray-400 dark:text-gray-300 border border-gray-200 dark:border-gray-600"><DocumentIcon /></div></div><p className="text-xs text-gray-400 mt-4">Werk in voorbereiding</p></div>
                 </div>
-
-                {/* Detailed Dashboard Widgets */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Open Invoices List */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700">
-                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                            <h3 className="font-bold text-gray-800 dark:text-white flex items-center">
-                                <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                Openstaande Facturen
-                            </h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto max-h-[300px]">
-                            {openInvoicesSorted.length === 0 ? (
-                                <div className="p-8 text-center text-gray-400 text-sm italic">Geen openstaande facturen. Goed bezig!</div>
-                            ) : (
-                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {openInvoicesSorted.map(inv => (
-                                        <div key={inv.id} className="px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{inv.clientName}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{inv.date} • {inv.number}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-gray-900 dark:text-white text-sm">€ {inv.total.toFixed(2)}</p>
-                                                <button 
-                                                    onClick={() => {setNewInvoice(inv); setActiveTab('create');}}
-                                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 mt-1"
-                                                >
-                                                    Bekijken
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Notifications & Notes Column */}
-                    <div className="space-y-8">
-                        
-                        {/* Expired Quotes Notifications */}
-                        {overdueQuotes.length > 0 && (
-                            <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl shadow border border-orange-200 dark:border-orange-800 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-orange-200 dark:border-orange-800 flex items-center text-orange-800 dark:text-orange-200">
-                                    <BellIcon />
-                                    <h3 className="font-bold ml-2">Verlopen Offertes</h3>
-                                </div>
-                                <div className="divide-y divide-orange-100/50 dark:divide-orange-800">
-                                    {overdueQuotes.map(quote => (
-                                        <div key={quote.id} className="px-6 py-3 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{quote.clientName}</p>
-                                                <p className="text-xs text-red-500">Verlopen op: {quote.dueDate}</p>
-                                            </div>
-                                            <button 
-                                                onClick={() => {setNewInvoice(quote); setActiveTab('create');}}
-                                                className="text-xs bg-white dark:bg-gray-700 border border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 px-3 py-1 rounded hover:bg-orange-100 dark:hover:bg-gray-600 transition"
-                                            >
-                                                Actie
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Notepad */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col h-full border border-gray-300 dark:border-gray-700">
-                             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                                <h3 className="font-bold text-gray-800 dark:text-white flex items-center">
-                                    <PencilIcon />
-                                    <span className="ml-2">Mijn Notities</span>
-                                </h3>
-                                <span className="text-xs text-gray-400">Slaat automatisch op</span>
-                            </div>
-                            <div className="p-4 flex-grow">
-                                <textarea 
-                                    className="w-full h-40 p-3 text-sm text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-yellow-50 dark:bg-gray-700 resize-none"
-                                    placeholder="Type hier je herinneringen, to-do's of notities..."
-                                    value={settings.dashboardNotes || ''}
-                                    onChange={(e) => setSettings({...settings, dashboardNotes: e.target.value})}
-                                />
-                            </div>
-                        </div>
-
-                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700"><div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50"><h3 className="font-bold text-gray-800 dark:text-white flex items-center"><span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>Openstaande Facturen</h3></div><div className="flex-1 overflow-y-auto max-h-[300px]">{openInvoicesSorted.length === 0 ? (<div className="p-8 text-center text-gray-400 text-sm italic">Geen openstaande facturen.</div>) : (<div className="divide-y divide-gray-100 dark:divide-gray-700">{openInvoicesSorted.map(inv => (<div key={inv.id} className="px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-750 flex justify-between items-center"><div><p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{inv.clientName}</p><p className="text-xs text-gray-500 dark:text-gray-400">{inv.date} • {inv.number}</p></div><div className="text-right"><p className="font-bold text-gray-900 dark:text-white text-sm">€ {inv.total.toFixed(2)}</p><button onClick={() => {setNewInvoice(inv); setActiveTab('create');}} className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 mt-1">Bekijken</button></div></div>))}</div>)}</div></div>
+                    <div className="space-y-8">{overdueQuotes.length > 0 && (<div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl shadow border border-orange-200 dark:border-orange-800 overflow-hidden"><div className="px-6 py-4 border-b border-orange-200 dark:border-orange-800 flex items-center text-orange-800 dark:text-orange-200"><BellIcon /><h3 className="font-bold ml-2">Verlopen Offertes</h3></div><div className="divide-y divide-orange-100/50 dark:divide-orange-800">{overdueQuotes.map(quote => (<div key={quote.id} className="px-6 py-3 flex justify-between items-center"><div><p className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{quote.clientName}</p><p className="text-xs text-red-500">Verlopen op: {quote.dueDate}</p></div><button onClick={() => {setNewInvoice(quote); setActiveTab('create');}} className="text-xs bg-white dark:bg-gray-700 border border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 px-3 py-1 rounded hover:bg-orange-100 dark:hover:bg-gray-600 transition">Actie</button></div>))}</div></div>)}<div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col h-full border border-gray-300 dark:border-gray-700"><div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50"><h3 className="font-bold text-gray-800 dark:text-white flex items-center"><PencilIcon /><span className="ml-2">Mijn Notities</span></h3><span className="text-xs text-gray-400">Slaat automatisch op</span></div><div className="p-4 flex-grow"><textarea className="w-full h-40 p-3 text-sm text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-yellow-50 dark:bg-gray-700 resize-none" placeholder="Notities..." value={settings.dashboardNotes || ''} onChange={(e) => setSettings({...settings, dashboardNotes: e.target.value})} /></div></div></div>
                 </div>
              </div>
         )}
 
-        {/* INVOICES (FOLDERS) TAB */}
         {activeTab === 'invoices' && (
           <div className="space-y-8">
-            
-            {/* Header & Search */}
             <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-gray-200 dark:border-gray-700 pb-4 gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Facturen</h2>
-                    <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1 space-x-2">
-                        <span className={`cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 ${!selectedFolderYear && !searchQuery ? 'font-bold text-indigo-700 dark:text-indigo-400' : ''}`} onClick={() => {setSelectedFolderYear(null); setViewMode('folders'); setSearchQuery('');}}>Jaaroverzicht</span>
-                        {selectedFolderYear && !searchQuery && (
-                            <>
-                                <ArrowRightIcon />
-                                <span className="font-bold text-indigo-700 dark:text-indigo-400">{selectedFolderYear}</span>
-                            </>
-                        )}
-                         {searchQuery && (
-                            <>
-                                <ArrowRightIcon />
-                                <span className="font-bold text-indigo-700 dark:text-indigo-400">Zoekresultaten</span>
-                            </>
-                        )}
-                    </div>
-                </div>
-                
-                {/* Search Bar */}
-                <div className="relative w-full md:w-64">
-                    <input
-                        type="text"
-                        placeholder="Zoeken..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-400 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 dark:text-white"
-                    />
-                    <div className="absolute left-3 top-2.5 text-gray-400">
-                        <SearchIcon />
-                    </div>
-                </div>
+                <div><h2 className="text-3xl font-bold text-gray-800 dark:text-white">Facturen</h2><div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1 space-x-2"><span className={`cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 ${!selectedFolderYear && !searchQuery ? 'font-bold text-indigo-700 dark:text-indigo-400' : ''}`} onClick={() => {setSelectedFolderYear(null); setViewMode('folders'); setSearchQuery('');}}>Jaaroverzicht</span>{selectedFolderYear && !searchQuery && (<><ArrowRightIcon /><span className="font-bold text-indigo-700 dark:text-indigo-400">{selectedFolderYear}</span></>)}{searchQuery && (<><ArrowRightIcon /><span className="font-bold text-indigo-700 dark:text-indigo-400">Zoekresultaten</span></>)}</div></div>
+                <div className="relative w-full md:w-64"><input type="text" placeholder="Zoeken..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-400 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 dark:text-white" /><div className="absolute left-3 top-2.5 text-gray-400"><SearchIcon /></div></div>
             </div>
 
-            {/* Level 1: Years (Only if no search and no specific year selected) */}
             {viewMode === 'folders' && !selectedFolderYear && !searchQuery && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {uniqueYears.length === 0 ? (
-                        <div className="col-span-3 text-center py-12 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-                            Nog geen administratie. Start met een nieuwe factuur!
-                        </div>
-                    ) : (
-                        uniqueYears.map(year => (
-                            <div key={year} onClick={() => setSelectedFolderYear(year)} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer border border-gray-300 dark:border-gray-700 group">
-                                <div className="flex items-center space-x-4">
-                                    <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg text-yellow-600 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900/50 transition">
-                                        <FolderIcon />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{year}</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{invoices.filter(i => i.date.startsWith(year)).length} documenten</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{uniqueYears.length === 0 ? (<div className="col-span-3 text-center py-12 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">Nog geen administratie.</div>) : (uniqueYears.map(year => (<div key={year} onClick={() => setSelectedFolderYear(year)} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer border border-gray-300 dark:border-gray-700 group"><div className="flex items-center space-x-4"><div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg text-yellow-600 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900/50 transition"><FolderIcon /></div><div><h3 className="text-xl font-bold text-gray-800 dark:text-white">{year}</h3><p className="text-sm text-gray-500 dark:text-gray-400">{invoices.filter(i => i.date.startsWith(year)).length} documenten</p></div></div></div>)))}</div>
             )}
 
-            {/* Level 2 & 3: Invoices List (Shows if inside a folder OR search is active OR viewmode is list) */}
             {(viewMode === 'list' || selectedFolderYear || searchQuery) && (
-                <div className="space-y-8">
-                    {!searchQuery && selectedFolderYear && <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">Facturen {selectedFolderYear}</h3>}
-                    {searchQuery && <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">Zoekresultaten voor "{searchQuery}"</h3>}
-                    
-                    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
-                        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-750">
-                            <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nummer</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Klant / Project</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Datum</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bedrag</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {filteredInvoices.length === 0 ? (
-                            <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Geen documenten gevonden.</td></tr>
-                            ) : (
-                                filteredInvoices.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${inv.type === 'invoice' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'}`}>
-                                                {inv.type === 'invoice' ? 'FACTUUR' : 'OFFERTE'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{inv.number}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                        <select 
-                                            value={inv.status} 
-                                            onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as any)}
-                                            className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${
-                                                inv.status === 'paid' ? 'bg-green-100 text-green-800' : 
-                                                inv.status === 'sent' ? 'bg-red-100 text-red-800' : 
-                                                inv.status === 'accepted' ? 'bg-blue-100 text-blue-800' : 
-                                                'bg-gray-100 text-gray-800'
-                                            }`}
-                                        >
-                                            <option value="draft">Concept</option>
-                                            <option value="sent">Verzonden (Open)</option>
-                                            <option value="paid">Betaald</option>
-                                            <option value="accepted">Geaccepteerd</option>
-                                        </select>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            <div className="font-medium text-gray-900 dark:text-white">{inv.clientName}</div>
-                                            {inv.project && <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">{inv.project}</div>}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{inv.date}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">€ {inv.total.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <button onClick={() => handlePrintFromList(inv)} className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Download PDF">
-                                            <PrinterIcon />
-                                        </button>
-                                        <button onClick={() => handleEmail(inv)} className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400" title="Verstuur via Email">
-                                            <MailIcon />
-                                        </button>
-                                        <button onClick={() => { setNewInvoice(inv); setActiveTab('create'); }} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-200 font-bold ml-2">Bewerk</button>
-                                        </td>
-                                    </tr>
-                                    ))
-                            )}
-                        </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div className="space-y-8">{!searchQuery && selectedFolderYear && <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">Facturen {selectedFolderYear}</h3>}{searchQuery && <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-4">Resultaten voor "{searchQuery}"</h3>}<div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700"><table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700"><thead className="bg-gray-50 dark:bg-gray-750"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nummer</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Klant</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Datum</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bedrag</th><th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acties</th></tr></thead><tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">{filteredInvoices.length === 0 ? (<tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Geen documenten.</td></tr>) : (filteredInvoices.map((inv) => (<tr key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition"><td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${inv.type === 'invoice' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'}`}>{inv.type === 'invoice' ? 'FACTUUR' : 'OFFERTE'}</span></td><td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{inv.number}</td><td className="px-6 py-4 whitespace-nowrap"><select value={inv.status} onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as any)} className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'sent' ? 'bg-red-100 text-red-800' : inv.status === 'accepted' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}><option value="draft">Concept</option><option value="sent">Verzonden</option><option value="paid">Betaald</option><option value="accepted">Geaccepteerd</option></select></td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400"><div className="font-medium text-gray-900 dark:text-white">{inv.clientName}</div>{inv.project && <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">{inv.project}</div>}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{inv.date}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">€ {inv.total.toFixed(2)}</td><td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2"><button onClick={() => handlePrintFromList(inv)} className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"><PrinterIcon /></button><button onClick={() => handleEmail(inv)} className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"><MailIcon /></button><button onClick={() => { setNewInvoice(inv); setActiveTab('create'); }} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-200 font-bold ml-2">Bewerk</button></td></tr>)))}</tbody></table></div></div>
             )}
           </div>
         )}
 
-        {/* Customers View */}
-        {activeTab === 'customers' && (
-            <CustomerManager 
-                invoices={invoices} 
-                onSelectInvoice={(inv) => { setNewInvoice(inv); setActiveTab('create'); }} 
-            />
-        )}
+        {activeTab === 'customers' && ( <CustomerManager invoices={invoices} onSelectInvoice={(inv) => { setNewInvoice(inv); setActiveTab('create'); }} /> )}
+        {activeTab === 'products' && ( <ProductManager settings={settings} onSave={setSettings} /> )}
+        {activeTab === 'settings' && ( <Settings settings={settings} onSave={setSettings} /> )}
 
-        {/* Products View */}
-        {activeTab === 'products' && (
-          <ProductManager settings={settings} onSave={setSettings} />
-        )}
-
-        {/* Settings View */}
-        {activeTab === 'settings' && (
-          <Settings settings={settings} onSave={setSettings} />
-        )}
-
-        {/* Create/Edit View */}
         {activeTab === 'create' && (
           <div className="flex flex-col lg:flex-row gap-8 h-full">
-            {/* Left Panel: Editor */}
             <div className="w-full lg:w-5/12 bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 overflow-y-auto no-print border border-gray-300 dark:border-gray-700">
               <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-bold text-gray-800 dark:text-white">Document Bewerken</h2>
                   <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-                      <button 
-                        onClick={() => setNewInvoice({...newInvoice, type: 'quote'})}
-                        className={`px-3 py-1 text-sm rounded-md transition ${newInvoice.type === 'quote' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
-                      >
-                          Offerte
-                      </button>
-                      <button 
-                        onClick={() => setNewInvoice({...newInvoice, type: 'invoice'})}
-                        className={`px-3 py-1 text-sm rounded-md transition ${newInvoice.type === 'invoice' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300 font-bold' : 'text-gray-500 dark:text-gray-400'}`}
-                      >
-                          Factuur
-                      </button>
+                      <button onClick={() => setNewInvoice({...newInvoice, type: 'quote'})} className={`px-3 py-1 text-sm rounded-md transition ${newInvoice.type === 'quote' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Offerte</button>
+                      <button onClick={() => setNewInvoice({...newInvoice, type: 'invoice'})} className={`px-3 py-1 text-sm rounded-md transition ${newInvoice.type === 'invoice' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-300 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>Factuur</button>
                   </div>
               </div>
-              
-              {/* AI Auto-fill (Collapsible) */}
               <div className="mb-8 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/30 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-sm overflow-hidden">
-                <div 
-                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-900/50 transition"
-                    onClick={() => setIsAiOpen(!isAiOpen)}
-                >
-                    <label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center cursor-pointer">
-                      <SparklesIcon /> <span className="ml-2">AI Assistent</span>
-                    </label>
-                    <div className="text-indigo-400">
-                        {isAiOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                    </div>
-                </div>
-                
-                {isAiOpen && (
-                    <div className="px-5 pb-5">
-                        <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">Omschrijf het werk en de materialen. De AI maakt de regels voor je.</p>
-                        <textarea
-                            className="w-full p-3 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white dark:bg-gray-700 dark:text-white"
-                            rows={3}
-                            placeholder="Bijv: 'Badkamer renovatie week 1, 40 uur arbeid a 55 euro, tegellijm 12 zakken a 15 euro...'"
-                            value={aiInput}
-                            onChange={(e) => setAiInput(e.target.value)}
-                        />
-                        <button 
-                            onClick={handleAiGenerate}
-                            disabled={isGenerating}
-                            className="mt-3 w-full bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-indigo-700 transition disabled:opacity-50 shadow-sm"
-                        >
-                            {isGenerating ? 'Bezig met genereren...' : 'Genereer Regels'}
-                        </button>
-                    </div>
-                )}
+                <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-900/50 transition" onClick={() => setIsAiOpen(!isAiOpen)}><label className="block text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center cursor-pointer"><SparklesIcon /><span className="ml-2">AI Assistent</span></label><div className="text-indigo-400">{isAiOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}</div></div>
+                {isAiOpen && ( <div className="px-5 pb-5"><p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">AI maakt de regels voor je.</p><textarea className="w-full p-3 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 dark:text-white" rows={3} placeholder="Omschrijf het werk..." value={aiInput} onChange={(e) => setAiInput(e.target.value)} /><button onClick={handleAiGenerate} disabled={isGenerating} className="mt-3 w-full bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-bold hover:bg-indigo-700 transition disabled:opacity-50">{isGenerating ? 'Genereren...' : 'Genereer Regels'}</button></div> )}
               </div>
-
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{newInvoice.type === 'quote' ? 'Offertenummer' : 'Factuurnummer'}</label>
-                        <input type="text" value={newInvoice.number} onChange={e => setNewInvoice({...newInvoice, number: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white"/>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Datum</label>
-                        <input 
-                            type="date" 
-                            value={newInvoice.date} 
-                            onChange={e => {
-                                const newDate = e.target.value;
-                                setNewInvoice({...newInvoice, date: newDate});
-                            }} 
-                            className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Vervaldatum</label>
-                        <input 
-                            type="date" 
-                            value={newInvoice.dueDate} 
-                            onChange={e => setNewInvoice({...newInvoice, dueDate: e.target.value})} 
-                            className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white"
-                        />
-                    </div>
+                    <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Nummer</label><input type="text" value={newInvoice.number} onChange={e => setNewInvoice({...newInvoice, number: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white"/></div>
+                    <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Datum</label><input type="date" value={newInvoice.date} onChange={e => setNewInvoice({...newInvoice, date: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white" /></div>
+                    <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Vervaldatum</label><input type="date" value={newInvoice.dueDate} onChange={e => setNewInvoice({...newInvoice, dueDate: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white" /></div>
                 </div>
-                <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Map / Project Naam</label>
-                    <input 
-                        type="text" 
-                        value={newInvoice.project} 
-                        onChange={e => setNewInvoice({...newInvoice, project: e.target.value})} 
-                        className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white" 
-                        placeholder="Bijv. Verbouwing Badkamer (Optioneel)"
-                        list="project-history"
-                    />
-                    <datalist id="project-history">
-                        {Array.from(new Set(invoices.map(i => i.project))).filter(Boolean).map(p => <option key={p} value={p} />)}
-                    </datalist>
-                </div>
+                <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Project</label><input type="text" value={newInvoice.project} onChange={e => setNewInvoice({...newInvoice, project: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white" placeholder="Projectnaam" list="project-history" /><datalist id="project-history">{Array.from(new Set(invoices.map(i => i.project))).filter(Boolean).map(p => <option key={p} value={p} />)}</datalist></div>
                 <div className="grid grid-cols-1 gap-4">
-                     <div>
-                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Klant Naam</label>
-                        <input type="text" value={newInvoice.clientName} onChange={e => setNewInvoice({...newInvoice, clientName: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white"/>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Klant Adres</label>
-                        <textarea value={newInvoice.clientAddress} onChange={e => setNewInvoice({...newInvoice, clientAddress: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border bg-white dark:bg-gray-700 dark:text-white" rows={2}/>
-                    </div>
+                     <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Klant</label><input type="text" value={newInvoice.clientName} onChange={e => setNewInvoice({...newInvoice, clientName: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white"/></div>
+                    <div><label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Adres</label><textarea value={newInvoice.clientAddress} onChange={e => setNewInvoice({...newInvoice, clientAddress: e.target.value})} className="block w-full border-gray-400 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-700 dark:text-white" rows={2}/></div>
                 </div>
-
                 <div className="border-t border-gray-300 dark:border-gray-700 pt-6 mt-6">
-                    <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-sm font-bold text-gray-800 dark:text-white">Factuurregels</h3>
-                        
-                        {/* Product Selector */}
-                        {(settings.products || []).length > 0 && (
-                            <select 
-                                onChange={(e) => {
-                                    if(e.target.value) handleProductSelect(e.target.value);
-                                    e.target.value = '';
-                                }}
-                                className="text-xs border rounded p-1 bg-white dark:bg-gray-700 border-indigo-300 dark:border-gray-600 text-indigo-800 dark:text-indigo-300"
-                            >
-                                <option value="">+ Product Toevoegen</option>
-                                {settings.products.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
+                    <div className="flex justify-between items-center mb-3"><h3 className="text-sm font-bold text-gray-800 dark:text-white">Regels</h3>{(settings.products || []).length > 0 && (<select onChange={(e) => { if(e.target.value) handleProductSelect(e.target.value); e.target.value = ''; }} className="text-xs border rounded p-1 bg-white dark:bg-gray-700 text-indigo-800 dark:text-indigo-300"><option value="">+ Product</option>{settings.products.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}</select>)}</div>
                     <div className="space-y-2">
                         {newInvoice.items.map((item, idx) => (
-                            <div key={idx} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700 p-2 rounded border border-gray-300 dark:border-gray-600 flex-wrap">
-                                <div className="flex-grow min-w-[150px]">
-                                    <label className="block text-[10px] text-gray-500 dark:text-gray-400">Omschrijving</label>
-                                    <textarea value={item.description} onChange={e => {
-                                        const newItems = [...newInvoice.items];
-                                        newItems[idx].description = e.target.value;
-                                        setNewInvoice({...newInvoice, items: newItems});
-                                    }} className="w-full border border-gray-400 dark:border-gray-600 rounded p-1 text-xs h-14 bg-white dark:bg-gray-800 dark:text-white" />
-                                </div>
-                                <div className="w-14">
-                                    <label className="block text-[10px] text-gray-500 dark:text-gray-400">Aantal</label>
-                                    <input 
-                                        type="number"
-                                        value={item.quantity} 
-                                        onChange={e => {
-                                            const newItems = [...newInvoice.items];
-                                            const val = e.target.value;
-                                            newItems[idx].quantity = val;
-                                            newItems[idx].amount = (Number(val) || 0) * (Number(newItems[idx].price) || 0);
-                                            setNewInvoice({...newInvoice, items: newItems});
-                                        }} 
-                                        className="w-full border border-gray-400 dark:border-gray-600 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white" 
-                                    />
-                                </div>
-                                <div className="w-16">
-                                    <label className="block text-[10px] text-gray-500 dark:text-gray-400">Prijs</label>
-                                    <input 
-                                        type="number"
-                                        value={item.price} 
-                                        onChange={e => {
-                                            const newItems = [...newInvoice.items];
-                                            const val = e.target.value;
-                                            newItems[idx].price = val;
-                                            newItems[idx].amount = (Number(newItems[idx].quantity) || 0) * (Number(val) || 0);
-                                            setNewInvoice({...newInvoice, items: newItems});
-                                        }} 
-                                        className="w-full border border-gray-400 dark:border-gray-600 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white" 
-                                    />
-                                </div>
-                                <div className="w-16">
-                                    <label className="block text-[10px] text-gray-500 dark:text-gray-400">BTW</label>
-                                    <select 
-                                        value={item.vatRate ?? 21} // default to 21 if undefined
-                                        onChange={e => {
-                                            const newItems = [...newInvoice.items];
-                                            newItems[idx].vatRate = Number(e.target.value);
-                                            setNewInvoice({...newInvoice, items: newItems});
-                                        }}
-                                        className="w-full border border-gray-400 dark:border-gray-600 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white"
-                                    >
-                                        <option value={21}>21%</option>
-                                        <option value={9}>9%</option>
-                                        <option value={0}>0%</option>
-                                    </select>
-                                </div>
+                            <div key={idx} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700 p-2 rounded border border-gray-300 flex-wrap">
+                                <div className="flex-grow min-w-[150px]"><textarea value={item.description} onChange={e => { const newItems = [...newInvoice.items]; newItems[idx].description = e.target.value; setNewInvoice({...newInvoice, items: newItems}); }} className="w-full border border-gray-400 rounded p-1 text-xs h-14 bg-white dark:bg-gray-800 dark:text-white" /></div>
+                                <div className="w-14"><input type="number" value={item.quantity} onChange={e => { const newItems = [...newInvoice.items]; const val = e.target.value; newItems[idx].quantity = val; newItems[idx].amount = (Number(val) || 0) * (Number(newItems[idx].price) || 0); setNewInvoice({...newInvoice, items: newItems}); }} className="w-full border border-gray-400 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white" /></div>
+                                <div className="w-16"><input type="number" value={item.price} onChange={e => { const newItems = [...newInvoice.items]; const val = e.target.value; newItems[idx].price = val; newItems[idx].amount = (Number(newItems[idx].quantity) || 0) * (Number(val) || 0); setNewInvoice({...newInvoice, items: newItems}); }} className="w-full border border-gray-400 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white" /></div>
+                                <div className="w-16"><select value={item.vatRate ?? 21} onChange={e => { const newItems = [...newInvoice.items]; newItems[idx].vatRate = Number(e.target.value); setNewInvoice({...newInvoice, items: newItems}); }} className="w-full border border-gray-400 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white"><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select></div>
                             </div>
                         ))}
                     </div>
-                    <button 
-                        onClick={() => setNewInvoice({...newInvoice, items: [...newInvoice.items, { description: '', quantity: 1, price: 0, amount: 0, vatRate: 21 }]})}
-                        className="mt-3 text-sm text-indigo-600 dark:text-indigo-400 font-bold hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center"
-                    >
-                        <PlusIcon /> <span className="ml-1">Lege regel</span>
-                    </button>
+                    <button onClick={() => setNewInvoice({...newInvoice, items: [...newInvoice.items, { description: '', quantity: 1, price: 0, amount: 0, vatRate: 21 }]})} className="mt-3 text-sm text-indigo-600 font-bold flex items-center"><PlusIcon /><span className="ml-1">Lege regel</span></button>
                 </div>
-                
-                {/* Discount Section */}
-                <div className="border-t border-gray-300 dark:border-gray-700 pt-4 mt-4 bg-gray-50 dark:bg-gray-700 p-3 rounded">
-                    <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Korting (Optioneel)</h4>
-                    <div className="flex gap-4">
-                         <div>
-                            <label className="block text-[10px] text-gray-500 dark:text-gray-400">Bedrag (excl BTW)</label>
-                            <input 
-                                type="number" 
-                                value={newInvoice.discountAmount || ''} 
-                                onChange={e => setNewInvoice({...newInvoice, discountAmount: e.target.value === '' ? 0 : parseFloat(e.target.value)})}
-                                className="border border-gray-400 dark:border-gray-600 rounded p-1 text-xs w-24 bg-white dark:bg-gray-800 dark:text-white"
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] text-gray-500 dark:text-gray-400">BTW over korting</label>
-                             <select 
-                                value={newInvoice.discountVatRate ?? 21} 
-                                onChange={e => setNewInvoice({...newInvoice, discountVatRate: Number(e.target.value)})}
-                                className="border border-gray-400 dark:border-gray-600 rounded p-1 text-xs bg-white dark:bg-gray-800 dark:text-white w-20"
-                            >
-                                <option value={21}>21%</option>
-                                <option value={9}>9%</option>
-                                <option value={0}>0%</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
               </div>
-
-              <div className="mt-8 pt-6 border-t border-gray-300 dark:border-gray-700 flex justify-between items-center">
-                  <button 
-                    onClick={() => setActiveTab('invoices')}
-                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm font-medium"
-                  >
-                      Annuleren
-                  </button>
-                  <div className="flex space-x-3">
-                      <button 
-                        onClick={handlePrintFromEditor}
-                        className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-600 transition shadow-sm flex items-center"
-                      >
-                          <PrinterIcon /> <span className="ml-2">PDF / Print</span>
-                      </button>
-                      <button 
-                        onClick={() => saveInvoice(false)}
-                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-md"
-                      >
-                          Opslaan
-                      </button>
-                  </div>
-              </div>
+              <div className="mt-8 pt-6 border-t border-gray-300 dark:border-gray-700 flex justify-between items-center"><button onClick={() => setActiveTab('invoices')} className="text-gray-500 hover:text-gray-700 text-sm font-medium">Annuleren</button><div className="flex space-x-3"><button onClick={handlePrintFromEditor} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center"><PrinterIcon /><span className="ml-2">PDF</span></button><button onClick={() => saveInvoice(false)} className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md">Opslaan</button></div></div>
             </div>
-
-            {/* Right Panel: Preview */}
             <div className="w-full lg:w-7/12 bg-gray-100 dark:bg-gray-900 p-4 lg:p-8 rounded-xl overflow-y-auto flex justify-center border border-gray-300 dark:border-gray-700 print:bg-white print:p-0 print:w-full print:border-none">
               <InvoicePreview invoice={newInvoice} settings={settings} />
             </div>
