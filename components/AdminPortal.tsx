@@ -1143,7 +1143,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onLogout, user }) => {
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">F</div>
             <div>
-                <h1 className="text-lg font-bold text-white">FactuurMeester</h1>
+                <h1 className="text-lg font-bold text-white">FactuurMeester2</h1>
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Beheerportaal</p>
             </div>
         </div>
